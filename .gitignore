@@ -34,3 +34,13 @@ nosetests.xml
 .mr.developer.cfg
 .project
 .pydevproject
+
+.idea
+
+gpl-3.0.txt
+
+qam.csv
+
+qam.wav
+
+test.bin
