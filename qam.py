@@ -5,6 +5,26 @@ from math import pi
 import struct
 import sys
 
+
+
+class iir:
+    def __init__(self):
+        self.xv = [0] * 5
+        self.yv = [0] * 5
+
+    def push(self, val):
+        self.xv[0] = self.xv[1]; self.xv[1] = self.xv[2]; self.xv[2] = self.xv[3]; self.xv[3] = self.xv[4]
+        self.xv[4] = val / 9.794817390e+01
+        self.yv[0] = self.yv[1]; self.yv[1] = self.yv[2]; self.yv[2] = self.yv[3]; self.yv[3] = self.yv[4]
+        self.yv[4] = (self.xv[0] + self.xv[4]) + 4 * (self.xv[1] + self.xv[3]) + 6 * self.xv[2] \
+                     + ( -0.1203895999 * self.yv[0]) + (  0.7244708295 * self.yv[1]) \
+                     + ( -1.7358607092 * self.yv[2]) + (  1.9684277869 * self.yv[3])
+        return self.yv[4]
+
+    def value(self):
+        return self.yv[4]
+     
+     
 class qam:
     def __init__(self, filename, samplerate=48000, mode='r'):
         w = wave.open(filename, mode + "b")
@@ -16,6 +36,8 @@ class qam:
             assert(w.getnchannels() == 1)
             assert(w.getframerate() == samplerate)
             assert(w.getsampwidth() == 2)
+            self.iir_i = iir()
+            self.iir_q = iir()
         else:
             assert(0)
 
@@ -59,18 +81,17 @@ class qam:
 
     def demodulate(self):
         while 1:
-            i=0
-            q=0
-            for j in range(self.symlen):
-                d = self.w.readframes(1)
-                if not d:
-                    return
-                d = struct.unpack("<h", d)[0]
-                d = 2 * float(d + 32768) / 65535 - 1
-                i += d * sin(2 * pi * self.carrier * self.t / self.samplerate)
-                q += d * cos(2 * pi * self.carrier * self.t / self.samplerate)
-                self.t += 1
-            sys.stdout.write("%.4f, %.4f\n" % (i, q))
+            d = self.w.readframes(1)
+            if not d:
+                return
+            d = struct.unpack("<h", d)[0]
+            d = 2 * float(d + 32768) / 65535 - 1
+            i = d * sin(2 * pi * self.carrier * self.t / self.samplerate)
+            q = d * cos(2 * pi * self.carrier * self.t / self.samplerate)
+            self.t += 1
+            self.iir_i.push(i)
+            self.iir_q.push(q)
+            sys.stdout.write("%.4f, %.4f\n" % (self.iir_i.value(), self.iir_q.value()))
 
 if sys.argv[1] == 'w':
     q = qam("qam.wav", mode='w')
