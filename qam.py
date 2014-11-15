@@ -45,13 +45,16 @@ class pid:
         d = (err - self.prev_err) * self.sample_rate * self.kd
         self.prev_err = err
         return p + i + d
-     
+
+def phase_detector(d0, d1, d2):
+    return (d2 - d0) * d1
+
 class qam:
     def __init__(self, filename, samplerate=48000, mode='r'):
 
         self.samplerate = samplerate
         self.carrier = 1450*11
-        self.symrate = 960
+        self.symrate = 960*2
         self.symlen = self.samplerate/self.symrate
         w = wave.open(filename, mode + "b")
         if mode == 'w':
@@ -64,9 +67,8 @@ class qam:
             assert(w.getsampwidth() == 2)
             invsqr2 = 1.0 / sqrt(2.0)
             cutoff = self.symrate
-            self.iir_i = Biquad(Biquad.LOWPASS, cutoff, samplerate, invsqr2)
-            self.iir_q = Biquad(Biquad.LOWPASS, cutoff, samplerate, invsqr2)
-            self.iir_i_ph = Biquad(Biquad.HIGHPASS, cutoff, samplerate, invsqr2)
+            self.iir_i = Biquad(Biquad.LOWPASS, cutoff*2, samplerate, invsqr2)
+            self.iir_q = Biquad(Biquad.LOWPASS, cutoff*2, samplerate, invsqr2)
             self.curr_phase = 0
             self.phase_max = self.symlen
         else:
@@ -107,25 +109,17 @@ class qam:
                     self.carry_len = 0
                     self.carry = 0
 
+
     def demodulate(self):
         di = []
         dq = []
         fi = []
-        ph_d = []
-        ph_i = []
         ph_ck = []
         si = []
         sq = []
-        prev_ph_i = 0
-        prev_ph_q = 0
-        sample_cnt = 0
         ph_err = 0
-        prev_li = 0
-        prev_lq = 0
 
         last_clock = 0
-        err_ph = 0
-        i_pid = pid(0.47, 8.5e-3, 8.5e-7, self.samplerate, 0)
 
         while 1:
             if ph_err > 0:
@@ -141,57 +135,49 @@ class qam:
             i = d * sin(2 * pi * self.carrier * self.t / self.samplerate)
             q = d * cos(2 * pi * self.carrier * self.t / self.samplerate)
             self.t += 1
-            sample_cnt += 1
             li = self.iir_i(i)
             lq = self.iir_q(q)
-            
+
             fi.append(li)
-            ph_filter_i = li - prev_li
-            ph_filter_q = lq - prev_lq
-            prev_li = li
-            prev_lq = lq
-
-            ph_d.append(ph_filter_i)
-
-            phi = abs(ph_filter_i) > (0.013 - prev_ph_i * 0.003)
-            phq = abs(ph_filter_q) > (0.013 - prev_ph_q * 0.003)
-            ph_i.append(phi)
-            if (prev_ph_i == 0 and phi == 1) and (prev_ph_q == 0 and phq == 1):
-                delta_ph = self.t - last_clock
-                err_ph = i_pid.update(delta_ph)
-                #sys.stdout.write("%f\n" % err_ph)
-
 
             self.curr_phase += 1
-            prev_ph_i = phi
-            prev_ph_q = phq
             si.append(li)
             sq.append(lq)
-            #err_ph = 0
-            if self.curr_phase + err_ph >= self.phase_max:
-                last_clock = self.t
+
+            if self.curr_phase >= self.phase_max:
                 self.curr_phase %= self.phase_max
-                i_min = len(si)/2-5
-                i_max = len(si)/2+5
+                sample_cnt = self.t - last_clock
+                last_clock = self.t
+                i_min = len(si)/2-8
+                i_max = len(si)/2+8
+                assert(i_min >= 0)
+                assert(i_max < len(si))
+
                 l = i_max - i_min
                 ii = sum(si[i_min:i_max])/l
                 qq = sum(sq[i_min:i_max])/l
-                #sys.stdout.write("%.4f, %.4f\n" % (si, sq))
                 di += [ii]*sample_cnt
                 dq += [qq]*sample_cnt
-                ph_ck.append(1)
+                ph_ck.append(0.4)
                 ph_ck += [0] * (sample_cnt-1)
+                g = len(si)/4
+                ei = phase_detector(si[g]-ii, si[len(si)/2]-ii, si[-g]-ii)
+                eq = phase_detector(sq[g]-qq, sq[len(sq)/2]-qq, sq[-g]-qq)
+                e = ei + eq
+                if e < 0:
+                    self.curr_phase += 1
+                if e > 0:
+                    self.curr_phase -= 1
+
                 si = []
                 sq = []
-                sample_cnt = 0
+
 
         if 1:
             pl.plot(di, dq, label='IQ', marker='o', color='b', ls='')
         else:
-            pl.plot(ph_d)
             pl.plot(di)
             pl.plot(fi)
-            pl.plot(ph_i)
             pl.plot(ph_ck)
         pl.grid(True)
         pl.show()
