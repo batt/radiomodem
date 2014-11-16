@@ -4,6 +4,7 @@ import struct
 import sys
 import pylab as pl
 from biquad_module import Biquad
+import random
 
 
 class iir:
@@ -46,8 +47,22 @@ class pid:
         self.prev_err = err
         return p + i + d
 
-def phase_detector(d0, d1, d2):
+def time_error_detector(d0, d1, d2):
     return (d2 - d0) * d1
+
+class Sma:
+    def __init__(self, size):
+        self.len = size
+        self.points = []
+        self.sum = 0.0
+
+    def add(self, p):
+        self.sum += p
+        self.points.append(p)
+        if len(self.points) == self.len + 1:
+            self.sum -= self.points.pop(0)
+
+        return self.sum / len(self.points)
 
 class qam:
     def __init__(self, filename, samplerate=48000, mode='r'):
@@ -58,6 +73,9 @@ class qam:
         self.symlen = self.samplerate/self.symrate
         w = wave.open(filename, mode + "b")
         if mode == 'w':
+            snr = 15 #dB
+            self.att = 10**(snr/20.0)
+
             w.setnchannels(1)
             w.setframerate(samplerate)
             w.setsampwidth(2)
@@ -67,8 +85,8 @@ class qam:
             assert(w.getsampwidth() == 2)
             invsqr2 = 1.0 / sqrt(2.0)
             cutoff = self.symrate
-            self.iir_i = Biquad(Biquad.LOWPASS, cutoff*2, samplerate, invsqr2)
-            self.iir_q = Biquad(Biquad.LOWPASS, cutoff*2, samplerate, invsqr2)
+            self.iir_i = Biquad(Biquad.LOWPASS, cutoff, samplerate, invsqr2)
+            self.iir_q = Biquad(Biquad.LOWPASS, cutoff, samplerate, invsqr2)
             self.curr_phase = 0
             self.phase_max = self.symlen
         else:
@@ -81,16 +99,23 @@ class qam:
         self.bit_per_symbol = 3
         symbols = 1 << self.bit_per_symbol
         self.amps = [(1,0), (1,1), (0,1), (-1,1), (-1,0), (-1,-1), (0,-1), (1,-1)]
+        #00110000 11000011 00001100
+        self.preamble = "\x30\xC3\x0C" * 8 + "\xff\xff\xff"
         self.symbols = symbols
         self.carry = 0
         self.carry_len = 0
 
     def modulate_symbol(self, l):
         assert(l < self.symbols)
-
+        #sys.stdout.write("%d " % l)
         for j in range(self.symlen):
             i = self.amps[l][0] * sin(2 * pi * self.carrier * self.t / self.samplerate)
             q = self.amps[l][1] * cos(2 * pi * self.carrier * self.t / self.samplerate)
+            i += random.randrange(-1,1)/self.att
+            q += random.randrange(-1,1)/self.att
+            i = max(min(i,1), -1)
+            q = max(min(q,1), -1)
+
             self.t += 1
 
             c = (i + q) / 2
@@ -99,10 +124,11 @@ class qam:
             self.w.writeframes(c)
 
     def modulate(self, data):
+        data = self.preamble + data
         for c in data:
             for i in range(8):
-                self.carry >>= 1
-                self.carry |= ((ord(c) >> i) & 1) << (self.bit_per_symbol - 1)
+                self.carry <<= 1
+                self.carry |= ((ord(c) >> (7-i)) & 1)
                 self.carry_len += 1
                 if self.carry_len == self.bit_per_symbol:
                     self.modulate_symbol(self.carry)
@@ -110,20 +136,31 @@ class qam:
                     self.carry = 0
 
 
+    def get_iq(self, d):
+        i = d * sin(2 * pi * self.carrier * self.t / self.samplerate)
+        q = d * cos(2 * pi * self.carrier * self.t / self.samplerate)
+        self.t += 1
+        i = self.iir_i(i)
+        q = self.iir_q(q)
+        return i, q
+
     def demodulate(self):
         di = []
         dq = []
         fi = []
+        fq = []
         ph_ck = []
         si = []
         sq = []
+        lock = []
+        err_sma = Sma(24)
         ph_err = 0
 
         last_clock = 0
 
         while 1:
             if ph_err > 0:
-                d = 0
+                d = random.randint(-32768, 32767)
                 ph_err -= 1
             else:
                 d = self.w.readframes(1)
@@ -132,61 +169,59 @@ class qam:
                 d = struct.unpack("<h", d)[0]
 
             d = 2 * float(d + 32768) / 65535 - 1
-            i = d * sin(2 * pi * self.carrier * self.t / self.samplerate)
-            q = d * cos(2 * pi * self.carrier * self.t / self.samplerate)
-            self.t += 1
-            li = self.iir_i(i)
-            lq = self.iir_q(q)
+            i, q = self.get_iq(d)
 
-            fi.append(li)
+            fi.append(i)
+            fq.append(q)
 
             self.curr_phase += 1
-            si.append(li)
-            sq.append(lq)
+            si.append(i)
+            sq.append(q)
 
             if self.curr_phase >= self.phase_max:
                 self.curr_phase %= self.phase_max
                 sample_cnt = self.t - last_clock
                 last_clock = self.t
-                i_min = len(si)/2-8
-                i_max = len(si)/2+8
-                assert(i_min >= 0)
-                assert(i_max < len(si))
+                idx2 = self.symlen/2
+                idx4 = self.symlen/4
 
-                l = i_max - i_min
-                ii = sum(si[i_min:i_max])/l
-                qq = sum(sq[i_min:i_max])/l
+                ii = sum(si[idx2-4:idx2+4]) / 8
+                qq = sum(sq[idx2-4:idx2+4]) / 8
                 di += [ii]*sample_cnt
                 dq += [qq]*sample_cnt
                 ph_ck.append(0.4)
                 ph_ck += [0] * (sample_cnt-1)
-                g = len(si)/4
-                ei = phase_detector(si[g]-ii, si[len(si)/2]-ii, si[-g]-ii)
-                eq = phase_detector(sq[g]-qq, sq[len(sq)/2]-qq, sq[-g]-qq)
+
+                ei = time_error_detector(si[idx4]-ii, si[idx2]-ii, si[-idx4]-ii)
+                eq = time_error_detector(sq[idx4]-qq, sq[idx2]-qq, sq[-idx4]-qq)
                 e = ei + eq
                 if e < 0:
                     self.curr_phase += 1
                 if e > 0:
                     self.curr_phase -= 1
 
+                lock += [err_sma.add(abs(e)) < 0.002] * sample_cnt
+
                 si = []
                 sq = []
 
 
-        if 1:
+        if 0:
             pl.plot(di, dq, label='IQ', marker='o', color='b', ls='')
         else:
             pl.plot(di)
+            #pl.plot(dq)
             pl.plot(fi)
+            #pl.plot(fq)
             pl.plot(ph_ck)
+            pl.plot(lock)
         pl.grid(True)
         pl.show()
 
 if sys.argv[1] == 'w':
     q = qam("qam.wav", mode='w')
-    f = open(sys.argv[2])
-    for c in f:
-        q.modulate(c)
+    f = open(sys.argv[2]).read()
+    q.modulate(f)
 else:
     q = qam("qam.wav")
     q.demodulate()
