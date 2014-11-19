@@ -285,6 +285,7 @@ class qam:
 
         if 1:
             pl.plot(di, dq, label='IQ', marker='o', color='b', ls='')
+            pl.axis((-2,2,-2,2))
         else:
             pl.plot(di)
             #pl.plot(dq)
