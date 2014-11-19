@@ -53,16 +53,32 @@ def time_error_detector(d0, d1, d2):
 class Sma:
     def __init__(self, size):
         self.len = size
-        self.points = []
-        self.sum = 0.0
+        self.reset()
 
     def add(self, p):
+        p2 = p*p
         self.sum += p
+        self.sum2 += p2
         self.points.append(p)
+        self.points2.append(p2)
         if len(self.points) == self.len + 1:
             self.sum -= self.points.pop(0)
+            self.sum2 -= self.points2.pop(0)
 
         return self.sum / len(self.points)
+
+    def avg(self):
+        return self.sum / len(self.points)
+
+    def variance(self):
+        l = len(self.points)
+        return self.sum2/l - (self.sum/l)**2
+
+    def reset(self):
+        self.points = []
+        self.points2 = []
+        self.sum = 0.0
+        self.sum2 = 0.0
 
 class qam:
     def __init__(self, filename, samplerate=48000, mode='r'):
@@ -73,7 +89,7 @@ class qam:
         self.symlen = self.samplerate/self.symrate
         w = wave.open(filename, mode + "b")
         if mode == 'w':
-            snr = 15 #dB
+            snr = 10 #dB
             self.att = 10**(snr/20.0)
 
             w.setnchannels(1)
@@ -89,6 +105,16 @@ class qam:
             self.iir_q = Biquad(Biquad.LOWPASS, cutoff, samplerate, invsqr2)
             self.curr_phase = 0
             self.phase_max = self.symlen
+            self.curr_p = 0
+            self.p = []
+            self.p.append({'i':Sma(16), 'q':Sma(16)})
+            self.p.append({'i':Sma(16), 'q':Sma(16)})
+            self.preamble_sync = 0
+            self.a = 0
+            self.b = 0
+            self.c = 0
+            self.d = 0
+
         else:
             assert(0)
 
@@ -99,6 +125,8 @@ class qam:
         self.bit_per_symbol = 3
         symbols = 1 << self.bit_per_symbol
         self.amps = [(1,0), (1,1), (0,1), (-1,1), (-1,0), (-1,-1), (0,-1), (1,-1)]
+        self.ref0 = self.amps[1]
+        self.ref1 = self.amps[4]
         #00110000 11000011 00001100
         self.preamble = "\x30\xC3\x0C" * 8 + "\xff\xff\xff"
         self.symbols = symbols
@@ -144,6 +172,43 @@ class qam:
         q = self.iir_q(q)
         return i, q
 
+    def compute_coeff(self, i0, i1, q0, q1, r0, r1):
+        b = (i0*r1 - r0*i1) / (q1*i0 - q0*i1)
+        a = (r0 - b*q0) / i0
+        return a, b
+
+    def read_data(self, i, q, lock):
+        self.p[self.curr_p]['i'].add(i)
+        self.p[self.curr_p]['q'].add(q)
+        self.curr_p = 1 - self.curr_p
+        if self.curr_p == 0:
+            var = self.p[0]['i'].variance() + self.p[0]['q'].variance() + \
+                  self.p[1]['i'].variance() + self.p[1]['q'].variance()
+
+            self.preamble_sync = var < 0.01
+
+        if lock and self.preamble_sync:
+            i0 = self.p[0]['i'].avg()
+            i1 = self.p[1]['i'].avg()
+            q0 = self.p[0]['q'].avg()
+            q1 = self.p[1]['q'].avg()
+            #check for correct preamble points (one segment is greater than the other)
+            l0 = i0*i0+q0*q0
+            l1 = i1*i1+q1*q1
+            if l1 > l0:
+                i = i1
+                i1 = i0
+                i0 = i
+
+                q = q1
+                q1 = q0
+                q0 = q
+
+            self.a, self.b = self.compute_coeff(i0, i1, q0, q1, self.ref0[0], self.ref1[0])
+            self.c, self.d = self.compute_coeff(i0, i1, q0, q1, self.ref0[1], self.ref1[1])
+
+
+
     def demodulate(self):
         di = []
         dq = []
@@ -153,8 +218,9 @@ class qam:
         si = []
         sq = []
         lock = []
-        err_sma = Sma(24)
-        ph_err = 0
+        sync = []
+        err_sma = Sma(32)
+        ph_err = 1111+random.randint(0, 50)
 
         last_clock = 0
 
@@ -187,8 +253,7 @@ class qam:
 
                 ii = sum(si[idx2-4:idx2+4]) / 8
                 qq = sum(sq[idx2-4:idx2+4]) / 8
-                di += [ii]*sample_cnt
-                dq += [qq]*sample_cnt
+
                 ph_ck.append(0.4)
                 ph_ck += [0] * (sample_cnt-1)
 
@@ -200,13 +265,25 @@ class qam:
                 if e > 0:
                     self.curr_phase -= 1
 
-                lock += [err_sma.add(abs(e)) < 0.002] * sample_cnt
+                err_sma.add(abs(e))
+                ll = err_sma.variance() < 5e-6
+                lock += [ll] * sample_cnt
+                self.read_data(ii, qq, ll)
+                sync += [self.preamble_sync] * sample_cnt
+                if self.a:
+                    iin = self.a*ii + self.b*qq
+                    qqn = self.c*ii + self.d*qq
+                else:
+                    iin = qqn = 0
+
+                di += [iin]*sample_cnt
+                dq += [qqn]*sample_cnt
 
                 si = []
                 sq = []
 
 
-        if 0:
+        if 1:
             pl.plot(di, dq, label='IQ', marker='o', color='b', ls='')
         else:
             pl.plot(di)
@@ -215,6 +292,7 @@ class qam:
             #pl.plot(fq)
             pl.plot(ph_ck)
             pl.plot(lock)
+            pl.plot(sync)
         pl.grid(True)
         pl.show()
 
