@@ -80,6 +80,44 @@ class Sma:
         self.sum = 0.0
         self.sum2 = 0.0
 
+class IqPoint:
+    def __init__(self, i=0, q=0, avg_len=16):
+        self.i = Sma(avg_len)
+        self.q = Sma(avg_len)
+
+    def avg(self):
+        return self.i.avg(), self.q.avg()
+
+    def add(self, i, q):
+        self.i.add(i)
+        self.q.add(q)
+        return self.avg()
+
+    def variance(self):
+        return self.i.variance() + self.q.variance()
+
+class Lock:
+    def __init__(self, size=32):
+        self.sma = Sma(size)
+        self.cnt = 0
+        self.curr_lock = 0
+
+    def curr_lock(self):
+        return self.curr_lock
+
+    def locked(self):
+        return (self.cnt)
+
+    def add(self, e):
+        self.sma.add(e)
+        self.curr_lock = self.sma.avg() < 1e-3
+        if self.curr_lock:
+            self.cnt += 1
+        else:
+            self.cnt -= 1
+
+        self.cnt = min(max(self.cnt, 0), 2)
+
 class qam:
     def __init__(self, filename, samplerate=48000, mode='r'):
 
@@ -105,14 +143,6 @@ class qam:
             self.iir_q = Biquad(Biquad.LOWPASS, cutoff, samplerate, invsqr2)
             self.curr_phase = 0
             self.phase_max = self.symlen
-            self.curr_p = 0
-            self.p = []
-            self.p.append({'i':Sma(16), 'q':Sma(16)})
-            self.p.append({'i':Sma(16), 'q':Sma(16)})
-            self.preamble_sync = 0
-            self.a = 0
-            self.b = 0
-
         else:
             assert(0)
 
@@ -122,11 +152,16 @@ class qam:
         self.t = 0
         self.bit_per_symbol = 3
         symbols = 1 << self.bit_per_symbol
-        self.amps = [(1,0), (1,1), (0,1), (-1,1), (-1,0), (-1,-1), (0,-1), (1,-1)]
-        self.ref0 = self.amps[1]
-        self.ref1 = self.amps[4]
+        self.amps = [(1,0), (1,1), (0,1), (-1,1), (-1,0), (-1,-1), (0,-1), (1,-1), (0,0)]
+        self.curr_p = 0
+        self.p = [IqPoint() for i in range(symbols)]
+        self.ref = [1, 4]
+
         #00110000 11000011 00001100
-        self.preamble = "\x30\xC3\x0C" * 8 + "\xff\xff\xff"
+        self.preamble = "\x30\xC3\x0C" * 7 + "\x30\xC3\x0F"
+        self.preamble_sync = 0
+        self.a = 0
+        self.b = 0
         self.symbols = symbols
         self.carry = 0
         self.carry_len = 0
@@ -170,42 +205,54 @@ class qam:
         q = self.iir_q(q)
         return i, q
 
-    def compute_coeff(self, i0, i1, q0, q1, r0, r1):
-        b = (i0*r1 - r0*i1) / (q1*i0 - q0*i1)
-        a = (r0 - b*q0) / i0
+    def compute_coeff(self, i, q, ref_sym):
+        ir = self.amps[ref_sym][0]
+        qr = self.amps[ref_sym][1]
+        a = (q*qr + i*ir) / (i*i + q*q)
+        b = (ir - a*i) / q
         return a, b
 
+    def find_symbol(self, i, q):
+        i = round(i, 0)
+        q = round(q, 0)
+        i = int(min(max(i, -1), 1))
+        q = int(min(max(q, -1), 1))
+
+        return self.amps.index((i, q))
+
     def read_data(self, i, q, lock):
-        self.p[self.curr_p]['i'].add(i)
-        self.p[self.curr_p]['q'].add(q)
+        r0 = self.ref[0]
+        r1 = self.ref[1]
+        cp = self.ref[self.curr_p]
+        self.p[cp].add(i, q)
+
         self.curr_p = 1 - self.curr_p
         if self.curr_p == 0:
-            var = self.p[0]['i'].variance() + self.p[0]['q'].variance() + \
-                  self.p[1]['i'].variance() + self.p[1]['q'].variance()
-
+            var = self.p[r0].variance() + self.p[r1].variance()
             self.preamble_sync = var < 0.01
 
-        if lock and self.preamble_sync:
-            i0 = self.p[0]['i'].avg()
-            i1 = self.p[1]['i'].avg()
-            q0 = self.p[0]['q'].avg()
-            q1 = self.p[1]['q'].avg()
-            #check for correct preamble points (one segment is greater than the other)
-            l0 = i0*i0+q0*q0
-            l1 = i1*i1+q1*q1
-            if l1 > l0:
-                i = i1
-                i1 = i0
-                i0 = i
+        if lock:
+            if self.preamble_sync:
+                i0, q0 = self.p[r0].avg()
+                i1, q1 = self.p[r1].avg()
+                #check for correct preamble points (one segment is greater than the other)
+                l0 = i0*i0+q0*q0
+                l1 = i1*i1+q1*q1
+                if l1 > l0:
+                    r = r1
+                    r1 = r0
+                    r0 = r
 
-                q = q1
-                q1 = q0
-                q0 = q
-
-            a, b = self.compute_coeff(i0, i1, q0, q1, self.ref0[0], self.ref1[0])
-            c, d = self.compute_coeff(i0, i1, q0, q1, self.ref0[1], self.ref1[1])
-            self.a = (a+d)/2
-            self.b = (b-c)/2
+                a0, b0 = self.compute_coeff(i0, q0, r0)
+                a1, b1 = self.compute_coeff(i1, q1, r1)
+                if self.a == 0:
+                    sys.stdout.write("Preamble lock a0:%f, b0:%f, a1:%f, b1:%f\n" % (a0,b0,a1,b1))
+                self.a = (a0+a1)/2
+                self.b = (b0+b1)/2
+        else:
+            if self.a != 0:
+                sys.stdout.write("Sync lost!\n")
+            self.a = 0
 
 
 
@@ -219,7 +266,7 @@ class qam:
         sq = []
         lock = []
         sync = []
-        err_sma = Sma(32)
+        edge_lock = Lock()
         ph_err = 1111+random.randint(0, 50)
 
         last_clock = 0
@@ -265,8 +312,8 @@ class qam:
                 if e > 0:
                     self.curr_phase -= 1
 
-                err_sma.add(abs(e))
-                ll = err_sma.variance() < 5e-6
+                edge_lock.add(e)
+                ll = edge_lock.locked()
                 lock += [ll] * sample_cnt
                 self.read_data(ii, qq, ll)
                 sync += [self.preamble_sync] * sample_cnt
@@ -275,6 +322,7 @@ class qam:
                     qqn = -self.b*ii + self.a*qq
                 else:
                     iin = qqn = 0
+
 
                 di += [iin]*sample_cnt
                 dq += [qqn]*sample_cnt
