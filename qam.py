@@ -112,8 +112,6 @@ class qam:
             self.preamble_sync = 0
             self.a = 0
             self.b = 0
-            self.c = 0
-            self.d = 0
 
         else:
             assert(0)
@@ -204,8 +202,10 @@ class qam:
                 q1 = q0
                 q0 = q
 
-            self.a, self.b = self.compute_coeff(i0, i1, q0, q1, self.ref0[0], self.ref1[0])
-            self.c, self.d = self.compute_coeff(i0, i1, q0, q1, self.ref0[1], self.ref1[1])
+            a, b = self.compute_coeff(i0, i1, q0, q1, self.ref0[0], self.ref1[0])
+            c, d = self.compute_coeff(i0, i1, q0, q1, self.ref0[1], self.ref1[1])
+            self.a = (a+d)/2
+            self.b = (b-c)/2
 
 
 
@@ -272,7 +272,7 @@ class qam:
                 sync += [self.preamble_sync] * sample_cnt
                 if self.a:
                     iin = self.a*ii + self.b*qq
-                    qqn = self.c*ii + self.d*qq
+                    qqn = -self.b*ii + self.a*qq
                 else:
                     iin = qqn = 0
 
