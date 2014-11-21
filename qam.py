@@ -101,22 +101,27 @@ class Lock:
         self.sma = Sma(size)
         self.cnt = 0
         self.curr_lock = 0
+        self.out = 0
 
     def curr_lock(self):
         return self.curr_lock
 
     def locked(self):
-        return (self.cnt)
+        if self.cnt >= 20:
+            self.out = 1
+        elif self.cnt < 1:
+            self.out = 0
+        return self.out
 
     def add(self, e):
         self.sma.add(e)
-        self.curr_lock = self.sma.avg() < 1e-3
+        self.curr_lock = (abs(self.sma.avg()) < 1e-3) and (self.sma.variance() < 1e-4)
         if self.curr_lock:
             self.cnt += 1
         else:
             self.cnt -= 1
 
-        self.cnt = min(max(self.cnt, 0), 2)
+        self.cnt = min(max(self.cnt, 0), 64)
 
 class qam:
     def __init__(self, filename, samplerate=48000, mode='r'):
