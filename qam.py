@@ -271,20 +271,30 @@ class qam:
         sq = []
         lock = []
         sync = []
+        data_present = []
         edge_lock = Lock()
-        ph_err = 1111+random.randint(0, 50)
-
+        ph_err = 11111+random.randint(0, 50)
+        trail = 11111
         last_clock = 0
 
         while 1:
             if ph_err > 0:
                 d = random.randint(-32768, 32767)
                 ph_err -= 1
+                data_present.append(0)
             else:
                 d = self.w.readframes(1)
-                if not d:
-                    break
-                d = struct.unpack("<h", d)[0]
+                if d:
+                    d = struct.unpack("<h", d)[0]
+                    data_present.append(1.5)
+                else:
+                    if trail:
+                        d = random.randint(-32768, 32767)
+                        trail -=1
+                        data_present.append(0)
+                    else:
+                        break
+                
 
             d = 2 * float(d + 32768) / 65535 - 1
             i, q = self.get_iq(d)
@@ -344,7 +354,8 @@ class qam:
             #pl.plot(dq)
             pl.plot(fi)
             #pl.plot(fq)
-            pl.plot(ph_ck)
+            #pl.plot(ph_ck)
+            pl.plot(data_present)
             pl.plot(lock)
             pl.plot(sync)
         pl.grid(True)
