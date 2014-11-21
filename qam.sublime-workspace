@@ -1,0 +1,477 @@
+{
+	"auto_complete":
+	{
+		"selected_items":
+		[
+			[
+				"mail",
+				"MailUsername	string ν"
+			],
+			[
+				"PR",
+				"Println	 ƒ"
+			],
+			[
+				"S",
+				"SendMail	bool ν"
+			],
+			[
+				"K_S",
+				"K_STOP_LONG	 Ɩ"
+			],
+			[
+				"pr",
+				"Println	 ƒ"
+			],
+			[
+				"mode",
+				"mode_long	[]int ν"
+			],
+			[
+				"s",
+				"Start	time.Time ν"
+			],
+			[
+				"P",
+				"Println	n int, err error ƒ"
+			],
+			[
+				"set",
+				"set_process	 ƒ"
+			],
+			[
+				"K_P",
+				"K_PROG_LONG	 Ɩ"
+			],
+			[
+				"mi",
+				"Millisecond	 Ɩ"
+			],
+			[
+				"No",
+				"Now	time.Time ƒ"
+			],
+			[
+				"A",
+				"ActualPrev	int ν"
+			],
+			[
+				"K",
+				"K_ADV	 Ɩ"
+			],
+			[
+				"K_",
+				"K_PROG	 Ɩ"
+			],
+			[
+				"PO",
+				"POINT_NONE	 Ɩ"
+			],
+			[
+				"BL",
+				"BLINK_NONE	 Ɩ"
+			],
+			[
+				"POINT_",
+				"POINT_1_BLINK	 Ɩ"
+			],
+			[
+				"m",
+				"max	int ν"
+			],
+			[
+				"C",
+				"Cfg	Config ν"
+			],
+			[
+				"confi",
+				"Config	struct ʈ"
+			],
+			[
+				"spr",
+				"Sprintf	string ƒ"
+			],
+			[
+				"c",
+				"Command	*exec.Cmd ƒ"
+			],
+			[
+				"Pa",
+				"ParamTime	struct ʈ"
+			],
+			[
+				"Param",
+				"ParamProductionTimeMinute	ParamProductionTime ʈ"
+			],
+			[
+				"POS_HIG",
+				"POS_HIGH_MIN	 Ɩ"
+			],
+			[
+				"e",
+				"edittab	[]Parameter ν"
+			],
+			[
+				"t",
+				"Time	struct ʈ"
+			],
+			[
+				"Sp",
+				"Sprintf	string ƒ"
+			],
+			[
+				"E",
+				"EditCfg	struct ʈ"
+			],
+			[
+				"POS",
+				"POS_LEN	 Ɩ"
+			],
+			[
+				"edi",
+				"editmap	map[int]*int ν"
+			],
+			[
+				"POS_HIGH_",
+				"POS_HIGH_HOUR	 Ɩ"
+			],
+			[
+				"POS_HI",
+				"POS_HIGH_MIN	 Ɩ"
+			],
+			[
+				"POS_",
+				"POS_HIGH	 Ɩ"
+			],
+			[
+				"Write",
+				"WriteEdit	 ƒ"
+			],
+			[
+				"POINT_2",
+				"POINT_2_BLINK	 Ɩ"
+			],
+			[
+				"POI",
+				"POINT_2_BLINK	 Ɩ"
+			],
+			[
+				"po",
+				"POINT_NONE	 Ɩ"
+			],
+			[
+				"w",
+				"Write	error ƒ"
+			],
+			[
+				"fpr",
+				"Fprintf	n int, err error ƒ"
+			],
+			[
+				"POS_H",
+				"POS_HIGH_HOUR	 Ɩ"
+			],
+			[
+				"B",
+				"BLINK_NONE	 Ɩ"
+			],
+			[
+				"n",
+				"Now	time.Time ƒ"
+			],
+			[
+				"N",
+				"Now	time.Time ƒ"
+			],
+			[
+				"ma",
+				"Marshal	[]byte, error ƒ"
+			],
+			[
+				"wr",
+				"writer_proc"
+			],
+			[
+				"b",
+				"blink"
+			],
+			[
+				"Wa",
+				"WaitGroup"
+			],
+			[
+				"a",
+				"append"
+			],
+			[
+				"D",
+				"Display"
+			],
+			[
+				"de",
+				"default"
+			],
+			[
+				"read",
+				"read_timeout"
+			],
+			[
+				"R",
+				"ReadWriteCloser"
+			],
+			[
+				"ke",
+				"key_ch"
+			],
+			[
+				"p",
+				"Println"
+			],
+			[
+				"error",
+				"errors"
+			]
+		]
+	},
+	"buffers":
+	[
+		{
+			"file": "qam.py",
+			"settings":
+			{
+				"buffer_size": 10000,
+				"line_ending": "Unix"
+			}
+		}
+	],
+	"build_system": "Packages/User/go-arm.sublime-build",
+	"command_palette":
+	{
+		"height": 392.0,
+		"selected_items":
+		[
+			[
+				"inst",
+				"Package Control: Install Package"
+			],
+			[
+				"instal",
+				"Package Control: Install Package"
+			],
+			[
+				"",
+				"About"
+			]
+		],
+		"width": 467.0
+	},
+	"console":
+	{
+		"height": 139.0
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"file_history":
+	[
+		"/home/batt/src/src_go/src/github.com/tarm/goserial/serial_linux.go",
+		"/home/batt/src/src_go/src/andon/andon",
+		"/home/batt/src/src_go/src/andon/andon.go",
+		"/home/batt/.config/sublime-text-2/Packages/GoSublime/USAGE.md",
+		"/home/batt/src/src_go/src/andon/andon.sublime-project",
+		"/home/batt/src/src_go/src/display/display.go",
+		"/home/batt/src/andon/src/andon/andon.go",
+		"/home/batt/src/andon/src/display/display.go",
+		"/home/batt/src/andon/Prova.c",
+		"/home/batt/src/goserial/serial_linux.go",
+		"/home/batt/src/goserial/serial.go",
+		"/home/batt/.config/sublime-text-2/Packages/User/go-arm.sublime-build",
+		"/home/batt/src/andon/src/main.go",
+		"/home/batt/src/andon/main.go",
+		"/home/batt/.config/sublime-text-2/Packages/User/go.sublime-build"
+	],
+	"find":
+	{
+		"height": 35.0
+	},
+	"find_in_files":
+	{
+		"height": 0.0,
+		"where_history":
+		[
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": false,
+		"find_history":
+		[
+			"ad",
+			"Andon",
+			"Reboot",
+			"WriteBgtSetup",
+			"fmt",
+			"fmt.Print",
+			"fmt.",
+			"ad.Actual",
+			"ad.Goal",
+			"prev_display",
+			"ad.Goal",
+			"<<<<<",
+			"andon_reset",
+			"prev_display",
+			"Actual",
+			"POS_HIGH",
+			"Write",
+			"takt",
+			"<<<<<",
+			"prev_display",
+			"Slee",
+			"slee",
+			"read_timeout",
+			"err",
+			"error",
+			"io"
+		],
+		"highlight": true,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+			"log.Print",
+			"log.",
+			"Goal"
+		],
+		"reverse": false,
+		"show_context": true,
+		"use_buffer2": true,
+		"whole_word": true,
+		"wrap": true
+	},
+	"groups":
+	[
+		{
+			"selected": 0,
+			"sheets":
+			[
+				{
+					"buffer": 0,
+					"file": "qam.py",
+					"settings":
+					{
+						"buffer_size": 10000,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Python/Python.tmLanguage",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				}
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 0.0
+	},
+	"input":
+	{
+		"height": 0.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0
+		]
+	},
+	"menu_visible": true,
+	"output.GoSublime-main-output":
+	{
+		"height": 112.0
+	},
+	"output.MarGo-output":
+	{
+		"height": 112.0
+	},
+	"output.exec":
+	{
+		"height": 112.0
+	},
+	"replace":
+	{
+		"height": 64.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"selected_items":
+		[
+			[
+				"dis",
+				"display.go"
+			],
+			[
+				"and",
+				"andon.go"
+			]
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 500.0,
+		"selected_items":
+		[
+			[
+				"",
+				"/home/batt/src/src_go/src/andon/andon.sublime-project"
+			]
+		],
+		"width": 380.0
+	},
+	"show_minimap": true,
+	"show_open_files": true,
+	"show_tabs": true,
+	"side_bar_visible": true,
+	"side_bar_width": 150.0,
+	"status_bar_visible": true
+}
