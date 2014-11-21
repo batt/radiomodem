@@ -81,7 +81,7 @@ class Sma:
         self.sum2 = 0.0
 
 class IqPoint:
-    def __init__(self, i=0, q=0, avg_len=16):
+    def __init__(self, avg_len=4):
         self.i = Sma(avg_len)
         self.q = Sma(avg_len)
 
@@ -157,16 +157,20 @@ class qam:
         self.t = 0
         self.bit_per_symbol = 3
         symbols = 1 << self.bit_per_symbol
-        self.amps = [(1,0), (1,1), (0,1), (-1,1), (-1,0), (-1,-1), (0,-1), (1,-1), (0,0)]
-        self.curr_p = 0
-        self.p = [IqPoint() for i in range(symbols)]
-        self.ref = [1, 4]
+        self.amps = [(1,0), (1,1), (0,1), (-1,1), (-1,0), (-1,-1), (0,-1), (1,-1)]
+        self.curr_preamble_p = 0
+        self.preamble_p = [IqPoint(16) for i in range(2)]
+        self.preamble_ref = [1, 4]
 
         #00110000 11000011 00001100
         self.preamble = "\x30\xC3\x0C" * 7 + "\x30\xC3\x0F"
         self.preamble_sync = 0
-        self.a = 0
-        self.b = 0
+        self.sync = 0
+        self.edge_lock = 0
+        self.a = Sma(8)
+        self.b = Sma(8)
+        self.a.add(0)
+        self.b.add(0)
         self.symbols = symbols
         self.carry = 0
         self.carry_len = 0
@@ -223,26 +227,32 @@ class qam:
         i = int(min(max(i, -1), 1))
         q = int(min(max(q, -1), 1))
 
-        return self.amps.index((i, q))
+        try:
+            return self.amps.index((i, q))
+        except ValueError:
+            return None
 
-    def read_data(self, i, q, lock):
-        r0 = self.ref[0]
-        r1 = self.ref[1]
-        cp = self.ref[self.curr_p]
-        self.p[cp].add(i, q)
 
-        self.curr_p = 1 - self.curr_p
-        if self.curr_p == 0:
-            var = self.p[r0].variance() + self.p[r1].variance()
-            self.preamble_sync = var < 0.01
+    def read_data(self, i, q):
 
-        if lock:
+        self.preamble_p[self.curr_preamble_p].add(i, q)
+
+        self.curr_preamble_p = 1 - self.curr_preamble_p
+        if self.curr_preamble_p == 0:
+            var = self.preamble_p[0].variance() + self.preamble_p[1].variance()
+            self.preamble_sync = (var < 0.01)
+
+        if self.edge_lock:
             if self.preamble_sync:
-                i0, q0 = self.p[r0].avg()
-                i1, q1 = self.p[r1].avg()
+                i0, q0 = self.preamble_p[0].avg()
+                i1, q1 = self.preamble_p[1].avg()
+
+                r0 = self.preamble_ref[0]
+                r1 = self.preamble_ref[1]
                 #check for correct preamble points (one segment is greater than the other)
                 l0 = i0*i0+q0*q0
                 l1 = i1*i1+q1*q1
+
                 if l1 > l0:
                     r = r1
                     r1 = r0
@@ -250,14 +260,32 @@ class qam:
 
                 a0, b0 = self.compute_coeff(i0, q0, r0)
                 a1, b1 = self.compute_coeff(i1, q1, r1)
-                if self.a == 0:
+                if not self.sync:
+                    self.sync = 1
                     sys.stdout.write("Preamble lock a0:%f, b0:%f, a1:%f, b1:%f\n" % (a0,b0,a1,b1))
-                self.a = (a0+a1)/2
-                self.b = (b0+b1)/2
+                self.a.add(a0)
+                self.a.add(a1)
+                self.b.add(b0)
+                self.b.add(b1)
+
+            ni =  self.a.avg() * i + self.b.avg() * q
+            nq = -self.b.avg() * i + self.a.avg() * q
+            sym = self.find_symbol(ni, nq)
+            if sym and self.sync:
+                a, b = self.compute_coeff(i, q, sym)
+                self.a.add(a)
+                self.b.add(b)
+            return ni, nq
         else:
-            if self.a != 0:
+            if self.sync:
                 sys.stdout.write("Sync lost!\n")
-            self.a = 0
+            self.sync = 0
+            self.a.reset()
+            self.b.reset()
+            self.a.add(0)
+            self.b.add(0)
+
+            return None
 
 
 
@@ -328,13 +356,12 @@ class qam:
                     self.curr_phase -= 1
 
                 edge_lock.add(e)
-                ll = edge_lock.locked()
-                lock += [ll] * sample_cnt
-                self.read_data(ii, qq, ll)
+                self.edge_lock = edge_lock.locked()
+                lock += [self.edge_lock] * sample_cnt
+                symbol = self.read_data(ii, qq)
                 sync += [self.preamble_sync] * sample_cnt
-                if self.a:
-                    iin = self.a*ii + self.b*qq
-                    qqn = -self.b*ii + self.a*qq
+                if symbol:
+                    iin, qqn = symbol
                 else:
                     iin = qqn = 0
 
