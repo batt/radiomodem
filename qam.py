@@ -163,7 +163,7 @@ class qam:
         self.preamble_ref = [1, 4]
 
         #00110000 11000011 00001100
-        self.preamble = "\x30\xC3\x0C" * 7 + "\x30\xC3\x0F"
+        self.preamble = "\x30\xC3\x0C" * 8 + "\x30\xC3\x0F"
         self.preamble_sync = 0
         self.sync = 0
         self.edge_lock = 0
