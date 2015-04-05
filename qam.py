@@ -314,7 +314,7 @@ class qam:
                 d = self.w.readframes(1)
                 if d:
                     d = struct.unpack("<h", d)[0]
-                    data_present.append(1.5)
+                    data_present.append(1)
                 else:
                     if trail:
                         d = random.randint(-32768, 32767)
